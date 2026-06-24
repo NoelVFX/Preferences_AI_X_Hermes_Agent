@@ -1,0 +1,17 @@
+{
+  "name": "stripe-checkout-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Demo Stripe-hosted Checkout workflow using Checkout Sessions.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "latest",
+    "express": "latest",
+    "node-fetch": "^3.3.2",
+    "stripe": "latest"
+  }
+}
