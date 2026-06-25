@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preferences AI Web Validation</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero-card split">
+        <div class="hero-copy">
+          <p class="eyebrow">Preferences AI for everyone</p>
+          <h1>Validate a product idea without joining Discord.</h1>
+          <p class="lede">
+            Enter a concept brief and the web gateway will create the same kind of free preview used by the Discord bot:
+            target demographics, preview affinity, live Preferences AI survey assets, simulation setup, and a Stripe unlock path.
+          </p>
+          <div class="badges">
+            <span>Dynamic preview</span>
+            <span>Preferences AI API</span>
+            <span>Stripe unlock</span>
+          </div>
+        </div>
+        <form id="validate-form" class="input-panel">
+          <label for="pitch">Product or startup concept</label>
+          <textarea id="pitch" name="pitch" rows="7" maxlength="1000" placeholder="Example: AI scheduling copilot for busy local service businesses that handles missed calls, reminders, and booking follow-ups." required></textarea>
+          <button id="submit-button" type="submit">Generate free preview</button>
+          <p class="fine-print">
+            Live API runs can take 1-3 minutes. Keep this tab open while the survey and simulation resources are prepared.
+          </p>
+        </form>
+      </section>
+
+      <section id="status-card" class="status-card hidden" aria-live="polite">
+        <div class="spinner"></div>
+        <div>
+          <strong id="status-title">Building validation preview…</strong>
+          <p id="status-text">Hermes-style market framing is being prepared.</p>
+        </div>
+      </section>
+
+      <section id="result" class="result-grid hidden">
+        <article class="result-card full">
+          <p class="eyebrow">Free preview report</p>
+          <h2 id="result-pitch"></h2>
+          <p id="result-category" class="muted"></p>
+        </article>
+
+        <article class="result-card">
+          <p class="eyebrow">Target Demographic A</p>
+          <h3 id="demo-a"></h3>
+          <div class="metric"><span id="affinity-a"></span><small>Preview affinity</small></div>
+        </article>
+
+        <article class="result-card">
+          <p class="eyebrow">Target Demographic B</p>
+          <h3 id="demo-b"></h3>
+          <div class="metric"><span id="affinity-b"></span><small>Preview affinity</small></div>
+        </article>
+
+        <article class="result-card full">
+          <p class="eyebrow">Summary findings</p>
+          <ul id="summary-list" class="summary-list"></ul>
+        </article>
+
+        <article class="result-card full asset-card">
+          <div>
+            <p class="eyebrow">Live resource state</p>
+            <h3 id="asset-heading">Preparing dashboard assets</h3>
+            <p id="asset-copy" class="muted"></p>
+            <dl class="asset-list">
+              <div><dt>Validation ID</dt><dd id="validation-id"></dd></div>
+              <div><dt>Survey API State</dt><dd id="survey-id"></dd></div>
+              <div><dt>Simulation State</dt><dd id="simulation-id"></dd></div>
+              <div><dt>Estimated panel</dt><dd id="estimate"></dd></div>
+            </dl>
+          </div>
+          <div class="unlock-panel">
+            <h3>Unlock full dashboard links</h3>
+            <p>Pay with Stripe Checkout to view the Preferences AI survey dashboard and live simulation logs.</p>
+            <a id="checkout-link" class="button-link disabled" href="#">Pay $9.99 to unlock</a>
+            <p id="checkout-note" class="fine-print"></p>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
