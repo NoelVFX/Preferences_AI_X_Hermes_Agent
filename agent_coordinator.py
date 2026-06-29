@@ -27,7 +27,7 @@ def load_local_env(path=None):
             key, value = line.split("=", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
-            os.environ.setdefault(key, value)
+            os.environ[key] = value
 
 
 def log_api_failure(label, response):
@@ -41,6 +41,39 @@ def log_api_failure(label, response):
     if trace_headers:
         print(f"{label} trace headers: {trace_headers}")
     print(f"{label} response body: {response.text[:2000]}")
+
+
+TRANSIENT_PREFERENCESAI_STATUS = {502, 503, 504, 520, 522, 524}
+
+
+async def preferences_request(method, url, attempts=3, backoff_seconds=5, **kwargs):
+    """Run a PreferencesAI HTTP request with retries for transport/upstream failures."""
+    last_exception = None
+    last_response = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = await asyncio.to_thread(requests.request, method, url, **kwargs)
+            last_response = response
+            if response.status_code not in TRANSIENT_PREFERENCESAI_STATUS:
+                return response
+            retry_after = response.headers.get("Retry-After")
+            wait_seconds = int(retry_after) if str(retry_after or "").isdigit() else backoff_seconds * attempt
+            print(
+                f"⚠️ PreferencesAI {method} {url} returned transient HTTP {response.status_code} "
+                f"on attempt {attempt}/{attempts}; retrying in {wait_seconds}s."
+            )
+        except requests.exceptions.RequestException as exc:
+            last_exception = exc
+            wait_seconds = backoff_seconds * attempt
+            print(
+                f"⚠️ PreferencesAI {method} {url} transport failure on attempt {attempt}/{attempts}: {exc}; "
+                f"retrying in {wait_seconds}s."
+            )
+        if attempt < attempts:
+            await asyncio.sleep(wait_seconds)
+    if last_exception is not None and last_response is None:
+        raise last_exception
+    return last_response
 
 
 def extract_survey_id(response_json):
@@ -369,7 +402,8 @@ async def validate(interaction: discord.Interaction, pitch: str):
         headers = {
             "X-API-Key": PREFERENCES_API_KEY,
             "Content-Type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "User-Agent": "Hermes-Agent/1.0"
         }
 
         # ========================================================
@@ -391,8 +425,8 @@ async def validate(interaction: discord.Interaction, pitch: str):
 
             print(f"📡 Building custom PreferencesAI survey for: {pitch[:60]}...")
         
-            build_res = await asyncio.to_thread(
-                requests.post,
+            build_res = await preferences_request(
+                "POST",
                 f"{PREFERENCES_API_BASE}/surveys/build",
                 json=build_payload,
                 headers=headers,
@@ -418,8 +452,8 @@ async def validate(interaction: discord.Interaction, pitch: str):
             print("📡 Saving custom PreferencesAI survey to dashboard...")
         
             # 🏎️ FIXED: Wrapped blocking requests.post in asyncio.to_thread
-            survey_res = await asyncio.to_thread(
-                requests.post,
+            survey_res = await preferences_request(
+                "POST",
                 f"{PREFERENCES_API_BASE}/surveys",
                 json=create_payload,
                 headers=headers,
@@ -438,8 +472,8 @@ async def validate(interaction: discord.Interaction, pitch: str):
             # sending a missing/not-found survey_id into /simulations.
             verify_res = None
             for attempt in range(1, 4):
-                verify_res = await asyncio.to_thread(
-                    requests.get,
+                verify_res = await preferences_request(
+                    "GET",
                     f"{PREFERENCES_API_BASE}/surveys/{survey_id}",
                     headers=headers,
                     timeout=PREFERENCES_REQUEST_TIMEOUT
@@ -466,8 +500,8 @@ async def validate(interaction: discord.Interaction, pitch: str):
 
             print(f"📡 Launching PreferencesAI pilot simulation capped at {PREFERENCES_SIMULATION_PRU_COST} PRU...")
         
-            sim_res = await asyncio.to_thread(
-                requests.post,
+            sim_res = await preferences_request(
+                "POST",
                 f"{PREFERENCES_API_BASE}/simulations",
                 json=sim_payload,
                 headers=headers,
@@ -531,6 +565,7 @@ async def validate(interaction: discord.Interaction, pitch: str):
                 'quantity': 1,
             }],
             mode='payment',
+            locale='en',
             success_url=f"{NGROK_URL}/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{NGROK_URL}/cancel",
             metadata={
