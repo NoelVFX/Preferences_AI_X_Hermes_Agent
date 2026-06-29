@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Preferences AI Web Validation</title>
+    <title>Validate a product or business idea in 60 seconds</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -11,10 +11,10 @@
       <section class="hero-card split">
         <div class="hero-copy">
           <p class="eyebrow">Preferences AI for everyone</p>
-          <h1>Validate a product idea without joining Discord.</h1>
+          <h1>Validate a product or business idea in 60 seconds</h1>
           <p class="lede">
-            Enter a concept brief and the web gateway will create the same kind of free preview used by the Discord bot:
-            target demographics, preview affinity, live Preferences AI survey assets, simulation setup, and a Stripe unlock path.
+            Enter a concept brief and get a free validation preview with target demographics, preview affinity,
+            live Preferences AI survey assets, simulation setup, and a Stripe unlock path.
           </p>
           <div class="badges">
             <span>Dynamic preview</span>
@@ -80,12 +80,13 @@
             <h3>Unlock full dashboard links</h3>
             <p>Pay with Stripe Checkout to view the Preferences AI survey dashboard and live simulation logs.</p>
             <a id="checkout-link" class="button-link disabled" href="#">Pay $9.99 to unlock</a>
+            <button id="retry-provisioning" class="button-link hidden" type="button">Retry live provisioning</button>
             <p id="checkout-note" class="fine-print"></p>
           </div>
         </article>
       </section>
     </main>
 
-    <script src="/app.js" type="module"></script>
+    <script src="/app.js?v=20260626-status-fix" type="module"></script>
   </body>
 </html>

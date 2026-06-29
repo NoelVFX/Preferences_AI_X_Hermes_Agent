@@ -235,15 +235,57 @@ Then use the Discord slash command:
 /validate pitch:"AI scheduling copilot for busy local service businesses"
 ```
 
-## Manual checkout fallback
+## Web validation app for non-Discord users
 
-If you need to test only the payment server without Discord, open:
+The Express server now also serves a browser version of the Discord validation flow.
+
+Open:
 
 ```text
 http://localhost:4242
 ```
 
-The fallback page creates a Checkout Session for `Preferences AI Blueprint Matrix` and returns to `/success` or `/cancel`.
+A visitor can enter a product/startup concept and receive:
+
+- a pitch-specific free preview report
+- Target Demographic A/B
+- preview affinity scores
+- summary findings
+- live Preferences AI survey creation when `PREFERENCES_AI_API_KEY` is set
+- optional live simulation launch when `WEB_RUN_LIVE_SIMULATION` is enabled
+- a Stripe Checkout URL for the paid dashboard unlock
+
+Main web endpoints:
+
+```text
+GET  /                  Browser app
+POST /api/validate      Generate preview, create Preferences AI assets, create Stripe Checkout Session
+GET  /success           Verify Stripe payment and display unlocked dashboard links
+GET  /cancel            Checkout cancellation page
+GET  /api/session/:id   Inspect a saved web validation session without exposing locked links
+```
+
+Web-specific environment variables:
+
+```dotenv
+WEB_RUN_LIVE_SIMULATION=1
+WEB_REQUIRE_PAYMENT_FOR_DASHBOARD_LINKS=1
+WEB_PRICE_CENTS=999
+WEB_PRICE_CURRENCY=usd
+WEB_PRODUCT_NAME="Preferences AI Blueprint Matrix"
+WEB_SESSION_STORE_PATH=./web_sessions.json
+HERMES_PREVIEW_USE_CLI=1
+HERMES_COMMAND=hermes
+HERMES_PREVIEW_TIMEOUT=90
+```
+
+Set `WEB_RUN_LIVE_SIMULATION=0` if you want web visitors to create only the dashboard survey before payment. Leave `WEB_REQUIRE_PAYMENT_FOR_DASHBOARD_LINKS=1` in production so survey/simulation URLs only appear after Stripe verifies `payment_status=paid`.
+
+The web app stores validation sessions in `web_sessions.json`. For production, replace this file store with a database keyed by `validation_id` and Stripe Checkout Session ID.
+
+## Manual checkout fallback
+
+The old manual checkout-only root page has been replaced by the full web validation app at `/`. The Stripe webhook and Discord unlock fallback are still supported for the Discord slash-command flow.
 
 ## Runtime state: `active_session.json`
 

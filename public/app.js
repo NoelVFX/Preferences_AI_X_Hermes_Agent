@@ -4,6 +4,8 @@ const statusCard = document.querySelector('#status-card');
 const statusTitle = document.querySelector('#status-title');
 const statusText = document.querySelector('#status-text');
 const result = document.querySelector('#result');
+const retryButton = document.querySelector('#retry-provisioning');
+let currentValidationId = '';
 
 const stages = [
   'Generating demographic framing…',
@@ -17,13 +19,15 @@ let stageTimer;
 function setBusy(isBusy) {
   submitButton.disabled = isBusy;
   submitButton.textContent = isBusy ? 'Generating…' : 'Generate free preview';
-  statusCard.classList.toggle('hidden', !isBusy);
+  if (isBusy) {
+    statusCard.classList.remove('hidden');
+  }
 }
 
 function startStages() {
   let index = 0;
   statusTitle.textContent = stages[index];
-  statusText.textContent = 'This mirrors the Discord flow, but returns the preview directly in the browser.';
+  statusText.textContent = 'Your preview will appear directly in the browser once the survey and checkout assets are ready.';
   clearInterval(stageTimer);
   stageTimer = setInterval(() => {
     index = Math.min(index + 1, stages.length - 1);
@@ -44,6 +48,7 @@ function text(id, value) {
 }
 
 function render(data) {
+  currentValidationId = data.validation_id || '';
   const preview = data.preview || {};
   result.classList.remove('hidden');
   text('#result-pitch', data.pitch);
@@ -77,11 +82,17 @@ function render(data) {
     assetCopy.textContent = data.simulation_message || 'Set PREFERENCES_AI_API_KEY to provision live Preferences AI assets.';
   } else if (data.live_status === 'failed') {
     assetHeading.textContent = 'Preview ready, live provisioning needs attention';
-    assetCopy.textContent = 'The free preview still works. Check server logs for the Preferences AI API error before using this for customers.';
+    assetCopy.textContent = data.live_error
+      ? `Preferences AI returned a transient error: ${data.live_error.slice(0, 180)}${data.live_error.length > 180 ? '…' : ''}`
+      : 'The free preview still works. Retry once the Preferences AI API is healthy.';
   } else {
     assetHeading.textContent = 'Preview generated';
     assetCopy.textContent = data.simulation_message || '';
   }
+
+  retryButton.classList.toggle('hidden', data.live_status !== 'failed' || !currentValidationId);
+  retryButton.disabled = false;
+  retryButton.textContent = 'Retry live provisioning';
 
   const checkoutLink = document.querySelector('#checkout-link');
   const checkoutNote = document.querySelector('#checkout-note');
@@ -118,6 +129,7 @@ form.addEventListener('submit', async (event) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Request failed with HTTP ${response.status}`);
     render(data);
+    statusCard.classList.add('hidden');
   } catch (error) {
     statusCard.classList.remove('hidden');
     statusTitle.textContent = 'Validation failed';
@@ -125,5 +137,28 @@ form.addEventListener('submit', async (event) => {
   } finally {
     stopStages();
     setBusy(false);
+  }
+});
+
+retryButton.addEventListener('click', async () => {
+  if (!currentValidationId) return;
+  retryButton.disabled = true;
+  retryButton.textContent = 'Retrying…';
+  statusCard.classList.remove('hidden');
+  statusTitle.textContent = 'Retrying live Preferences AI provisioning…';
+  statusText.textContent = 'Reusing your saved preview and validation ID. This can take 1-3 minutes.';
+
+  try {
+    const response = await fetch(`/api/session/${encodeURIComponent(currentValidationId)}/retry`, { method: 'POST' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Retry failed with HTTP ${response.status}`);
+    render(data);
+    statusCard.classList.add('hidden');
+  } catch (error) {
+    statusCard.classList.remove('hidden');
+    statusTitle.textContent = 'Retry failed';
+    statusText.textContent = error.message;
+    retryButton.disabled = false;
+    retryButton.textContent = 'Retry live provisioning';
   }
 });

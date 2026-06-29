@@ -6,7 +6,9 @@
   "description": "Demo Stripe-hosted Checkout workflow using Checkout Sessions.",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "check": "node --check server.js",
+    "test": "node --test tests/*.mjs"
   },
   "dependencies": {
     "dotenv": "latest",
