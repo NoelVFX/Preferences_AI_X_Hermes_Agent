@@ -84,6 +84,38 @@ test('runHermesCli uses documented quiet chat one-shot args', async () => {
   ]);
 });
 
+test('buildHermesCliArgs includes Railway provider and model overrides when configured', () => {
+  assert.deepEqual(server.buildHermesCliArgs('test prompt', { provider: 'openai-api', model: 'gpt-5.5' }), [
+    'chat',
+    '-Q',
+    '--ignore-rules',
+    '--provider',
+    'openai-api',
+    '-m',
+    'gpt-5.5',
+    '-q',
+    'test prompt'
+  ]);
+});
+
+test('runHermesCli reports actionable diagnostics when the CLI fails in production', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'preferences-hermes-cli-fail-'));
+  const fakeHermesPath = path.join(tempDir, 'fake-hermes-fail.mjs');
+  fs.writeFileSync(fakeHermesPath, `#!/usr/bin/env node\nconsole.error('missing provider api key');\nprocess.exit(7);\n`);
+  fs.chmodSync(fakeHermesPath, 0o755);
+
+  await assert.rejects(
+    () => server.runHermesCli('test prompt', { command: fakeHermesPath, timeoutMs: 5000 }),
+    (error) => {
+      assert.match(error.message, /process exited non-zero/);
+      assert.match(error.message, /exit_code=7/);
+      assert.match(error.message, /stderr_bytes=/);
+      assert.match(error.message, /missing provider api key/);
+      return true;
+    }
+  );
+});
+
 test('retryPreferencesProvisioning returns an already-provisioned session without another API call', async () => {
   const validationId = 'retry-test-validation';
   const existing = server.saveWebSession({

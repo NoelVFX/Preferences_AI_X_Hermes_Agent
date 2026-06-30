@@ -169,13 +169,31 @@ PREFERENCES_REQUEST_TIMEOUT=180
 # Hermes preview generation
 HERMES_PREVIEW_USE_CLI=1
 HERMES_COMMAND=hermes
-HERMES_PREVIEW_TIMEOUT=90
+HERMES_PROVIDER=openai-api
+HERMES_MODEL=gpt-5.5
+HERMES_PREVIEW_TIMEOUT=180
+OPENAI_API_KEY=...
 
 # Discord
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
 `agent_coordinator.py` also expects a Discord bot token and guild ID. In the current file these are defined directly in code; for production, move them into `.env` as `DISCORD_BOT_TOKEN` and `DISCORD_GUILD_ID` and read them with `os.getenv`.
+
+## Railway deployment notes
+
+`nixpacks.toml` installs Hermes Agent during Railway builds and puts `$HOME/.local/bin` on `PATH` at startup. Set these Railway variables so the web preview route can run Hermes instead of falling back to the local deterministic template:
+
+```dotenv
+HERMES_PREVIEW_USE_CLI=1
+HERMES_COMMAND=hermes
+HERMES_PROVIDER=openai-api
+HERMES_MODEL=gpt-5.5
+HERMES_PREVIEW_TIMEOUT=180
+OPENAI_API_KEY=...
+```
+
+If Railway still falls back, check deployment logs for `Hermes preview generation failed`; the message includes command, exit code, timeout, stdout/stderr byte counts, and a stderr snippet.
 
 ## Running locally
 

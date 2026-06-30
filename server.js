@@ -34,6 +34,8 @@ const STATIC_DIR = path.join(__dirname, 'public');
 const HERMES_PREVIEW_USE_CLI = !['0', 'false', 'no'].includes(String(process.env.HERMES_PREVIEW_USE_CLI || '1').toLowerCase());
 const HERMES_COMMAND = process.env.HERMES_COMMAND || (process.env.HOME ? path.join(process.env.HOME, '.local/bin/hermes') : 'hermes');
 const HERMES_PREVIEW_TIMEOUT = Number(process.env.HERMES_PREVIEW_TIMEOUT || 90) * 1000;
+const HERMES_PROVIDER = process.env.HERMES_PROVIDER || '';
+const HERMES_MODEL = process.env.HERMES_MODEL || '';
 
 if (!PREFERENCES_API_KEY) {
   console.warn('⚠️ PREFERENCES_AI_API_KEY is not set; web validations will render a dynamic preview but skip live Preferences AI API provisioning.');
@@ -43,6 +45,9 @@ if (!stripe) {
 }
 if (!DISCORD_WEBHOOK_URL) {
   console.warn('⚠️ DISCORD_WEBHOOK_URL is not set; Stripe webhook Discord unlock delivery is disabled unless DISCORD_BOT_TOKEN + metadata channel/user is present.');
+}
+if (HERMES_PREVIEW_USE_CLI) {
+  console.log(`Hermes preview CLI enabled: command=${HERMES_COMMAND} provider=${HERMES_PROVIDER || '(default config)'} model=${HERMES_MODEL || '(default config)'} timeout=${HERMES_PREVIEW_TIMEOUT}ms`);
 }
 
 const STOPWORDS = new Set([
@@ -241,14 +246,51 @@ function extractJsonObject(text) {
   return JSON.parse(output.slice(start, end + 1));
 }
 
-function runHermesCli(prompt, { command = HERMES_COMMAND, timeoutMs = HERMES_PREVIEW_TIMEOUT } = {}) {
+function buildHermesCliArgs(prompt, { provider = HERMES_PROVIDER, model = HERMES_MODEL } = {}) {
+  const args = ['chat', '-Q', '--ignore-rules'];
+  if (provider) args.push('--provider', provider);
+  if (model) args.push('-m', model);
+  args.push('-q', prompt);
+  return args;
+}
+
+function hermesCliEnv() {
+  const localBin = process.env.HOME ? path.join(process.env.HOME, '.local/bin') : '';
+  return {
+    ...process.env,
+    PATH: localBin ? `${localBin}:${process.env.PATH || ''}` : process.env.PATH
+  };
+}
+
+function commandLabel(command) {
+  return command === HERMES_COMMAND ? 'Hermes CLI' : `Hermes CLI (${command})`;
+}
+
+function formatHermesFailure(command, message, { code = '', stdout = '', stderr = '', timeoutMs = 0 } = {}) {
+  const stderrSnippet = String(stderr || '').trim().slice(0, 900);
+  const stdoutSnippet = String(stdout || '').trim().slice(0, 300);
+  const parts = [
+    `${commandLabel(command)} failed: ${message}`,
+    `command=${command}`
+  ];
+  if (code !== '') parts.push(`exit_code=${code}`);
+  if (timeoutMs) parts.push(`timeout_ms=${timeoutMs}`);
+  parts.push(`stdout_bytes=${Buffer.byteLength(String(stdout || ''), 'utf8')}`);
+  parts.push(`stderr_bytes=${Buffer.byteLength(String(stderr || ''), 'utf8')}`);
+  if (stderrSnippet) parts.push(`stderr=${stderrSnippet}`);
+  if (stdoutSnippet) parts.push(`stdout=${stdoutSnippet}`);
+  return parts.join(' | ');
+}
+
+function runHermesCli(prompt, { command = HERMES_COMMAND, timeoutMs = HERMES_PREVIEW_TIMEOUT, provider = HERMES_PROVIDER, model = HERMES_MODEL } = {}) {
   return new Promise((resolve, reject) => {
     // Use the documented one-shot form and quiet mode so stdout is just the
     // model answer. Legacy `hermes -z` can emit banners/noise on some installs,
     // which makes the JSON parser fail and silently drops the app into the
     // deterministic local preview fallback.
-    const proc = spawn(command, ['chat', '-Q', '--ignore-rules', '-q', prompt], {
-      env: process.env,
+    const args = buildHermesCliArgs(prompt, { provider, model });
+    const proc = spawn(command, args, {
+      env: hermesCliEnv(),
       windowsHide: true
     });
     let stdout = '';
@@ -257,7 +299,7 @@ function runHermesCli(prompt, { command = HERMES_COMMAND, timeoutMs = HERMES_PRE
     const timer = setTimeout(() => {
       settled = true;
       proc.kill('SIGKILL');
-      reject(new Error('Hermes CLI process execution timed out.'));
+      reject(new Error(formatHermesFailure(command, 'process execution timed out', { stdout, stderr, timeoutMs })));
     }, timeoutMs);
 
     proc.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
@@ -266,14 +308,14 @@ function runHermesCli(prompt, { command = HERMES_COMMAND, timeoutMs = HERMES_PRE
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      reject(error);
+      reject(new Error(formatHermesFailure(command, error.message, { stdout, stderr, timeoutMs })));
     });
     proc.on('close', (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`Hermes process error (${code}): ${stderr.trim()}`));
+        reject(new Error(formatHermesFailure(command, 'process exited non-zero', { code, stdout, stderr, timeoutMs })));
         return;
       }
       resolve(stdout.trim());
@@ -843,6 +885,7 @@ export {
   buildPreviewReport,
   buildHermesPreviewReport,
   provisionPreferencesAssets,
+  buildHermesCliArgs,
   extractJsonObject,
   normalizeSummaryMatrix,
   runHermesCli,
