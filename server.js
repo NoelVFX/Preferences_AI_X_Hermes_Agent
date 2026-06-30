@@ -243,7 +243,11 @@ function extractJsonObject(text) {
 
 function runHermesCli(prompt, { command = HERMES_COMMAND, timeoutMs = HERMES_PREVIEW_TIMEOUT } = {}) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, ['--ignore-rules', '-z', prompt], {
+    // Use the documented one-shot form and quiet mode so stdout is just the
+    // model answer. Legacy `hermes -z` can emit banners/noise on some installs,
+    // which makes the JSON parser fail and silently drops the app into the
+    // deterministic local preview fallback.
+    const proc = spawn(command, ['chat', '-Q', '--ignore-rules', '-q', prompt], {
       env: process.env,
       windowsHide: true
     });

@@ -66,6 +66,24 @@ test('buildHermesPreviewReport converts string summary_matrix into browser list 
   ]);
 });
 
+test('runHermesCli uses documented quiet chat one-shot args', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'preferences-hermes-cli-'));
+  const argvPath = path.join(tempDir, 'argv.json');
+  const fakeHermesPath = path.join(tempDir, 'fake-hermes.mjs');
+  fs.writeFileSync(fakeHermesPath, `#!/usr/bin/env node\nimport fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(2)));\nconsole.log(JSON.stringify({ pitch_category: 'ok', demographic_a: 'Group A ages 20-30', demographic_b: 'Group B ages 31-40', summary_matrix: ['ok'] }));\n`);
+  fs.chmodSync(fakeHermesPath, 0o755);
+
+  const output = await server.runHermesCli('test prompt', { command: fakeHermesPath, timeoutMs: 5000 });
+  assert.match(output, /"pitch_category":"ok"/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(argvPath, 'utf8')), [
+    'chat',
+    '-Q',
+    '--ignore-rules',
+    '-q',
+    'test prompt'
+  ]);
+});
+
 test('retryPreferencesProvisioning returns an already-provisioned session without another API call', async () => {
   const validationId = 'retry-test-validation';
   const existing = server.saveWebSession({

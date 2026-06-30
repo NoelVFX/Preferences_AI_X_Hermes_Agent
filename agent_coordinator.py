@@ -334,7 +334,7 @@ Do not include markdown fences, commentary, or any text outside the JSON object.
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            HERMES_COMMAND, "--ignore-rules", "-z", prompt,
+            HERMES_COMMAND, "chat", "-Q", "--ignore-rules", "-q", prompt,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
