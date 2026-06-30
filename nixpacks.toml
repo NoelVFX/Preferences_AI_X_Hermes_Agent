@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "python311", "python311Packages.pip"]
+
+[phases.install]
+cmds = [
+  "npm ci",
+  "python3 -m pip install --user hermes-agent==0.15.2"
+]
+
+[start]
+cmd = "export PATH=\"$HOME/.local/bin:$PATH\" && npm start"
